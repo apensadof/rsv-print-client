@@ -6,6 +6,8 @@ let selectedPrinter = null;
 let mainWindow = null;
 
 function createWindow() {
+  autoUpdater.checkForUpdatesAndNotify();
+
   let autoLaunch = new AutoLaunch({
     name: 'RSV Print Client',
     path: app.getPath('exe'),
@@ -94,7 +96,7 @@ function createWindow() {
     mainWindow.loadURL('https://client.rsvapp.com/print?standalone=true');
     mainWindow.setMenu(null);
 
-    mainWindow.webContents.openDevTools();
+    //mainWindow.webContents.openDevTools();
 
     
   // Minimizar la ventana una vez que esté lista
@@ -185,6 +187,26 @@ app.on('ready', createWindow);
 // Configura el logging
 autoUpdater.logger = require("electron-log");
 autoUpdater.logger.transports.file.level = "info";
+
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available.');
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Error in auto-updater. ' + err);
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  let log_message = "Download speed: " + progressObj.bytesPerSecond;
+  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+  console.log(log_message);
+});
+
 
 // Evento disparado cuando hay una actualización disponible
 autoUpdater.on('update-available', () => {

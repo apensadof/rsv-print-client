@@ -1,6 +1,6 @@
 {
   "name": "rsv-print-client",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "RSV Printing Client",
   "main": "src/main.js",
   "scripts": {
@@ -45,7 +45,8 @@
       {
         "provider": "github",
         "owner": "apensadof",
-        "repo": "rsv-print-client"
+        "repo": "rsv-print-client",
+        "private": false
       }
     ]
   },
@@ -63,6 +64,6 @@
   },
   "devDependencies": {
     "electron": "^31.3.1",
-    "electron-builder": "^23.0.6"
+    "electron-builder": "^23.6.0"
   }
 }
