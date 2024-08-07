@@ -1,0 +1,68 @@
+{
+  "name": "rsv-print-client",
+  "version": "0.1.2",
+  "description": "RSV Printing Client",
+  "main": "src/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win --x64",
+    "dist:linux": "electron-builder --linux"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/apensadof/rsv-print-client.git"
+  },
+  "build": {
+    "appId": "com.rsvapp.print-client",
+    "productName": "RSV Print Client",
+    "files": [
+      "build/**/*",
+      "src/**/*"
+    ],
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.utilities"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "apensadof",
+        "repo": "rsv-print-client"
+      }
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/apensadof/rsv-print-client/issues"
+  },
+  "homepage": "https://github.com/apensadof/rsv-print-client#readme",
+  "dependencies": {
+    "auto-launch": "^5.0.6",
+    "electron-log": "^5.1.7",
+    "electron-updater": "^6.2.1"
+  },
+  "devDependencies": {
+    "electron": "^31.3.1",
+    "electron-builder": "^23.0.6"
+  }
+}
