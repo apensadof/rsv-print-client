@@ -10,59 +10,14 @@ app.on('before-quit', () => {
     //isQuitting = true; // Marcar que la app está cerrándose
 });
 
-function createWindow() {
+function createWindow(minimized = 0) {
   if (isQuitting) {
     return; // No hacer nada si la aplicación está cerrándose
   }
   
   autoUpdater.checkForUpdatesAndNotify();
 
-  let autoLaunch = new AutoLaunch({
-    name: 'RSV Print Client',
-    path: app.getPath('exe'),
-  });
-
-  autoLaunch.isEnabled().then((isEnabled) => {
-    if (!isEnabled) autoLaunch.enable();
-  });
-
-  
-
-  if (process.platform === 'win32' ) {
-    tray = new Tray(path.join(__dirname, '../build/icon.ico'))
-    // tray.on('click', tray.popUpContextMenu)
-    tray.on("click", ()=>{
-      //tray.popUpContextMenu();
-      if (mainWindow === null || mainWindow.isDestroyed()) {
-        createWindow();
-      } else {
-        mainWindow.focus(); // Opcional: enfocar la ventana si ya está abierta
-      }
-    });
-  
-    const menu = Menu.buildFromTemplate ([
-
-      {
-        label: 'Buscar actualizaciones',
-        click: () => {
-            autoUpdater.checkForUpdates();
-        }
-      },
-      {
-        label: 'Detener servicio',
-        click() { 
-          isQuitting = true; // Marcar que la app está cerrándose
-          app.quit();
-        }
-      },
-      
-    ]);
-
-    tray.setToolTip('RSV Print Client');
-    tray.setContextMenu(menu);
-  }
-
-  let mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 400,
     height: 600,
     
@@ -112,10 +67,11 @@ function createWindow() {
 
     
   // Minimizar la ventana una vez que esté lista
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.minimize();
-  });
-
+  if(minimized){
+    mainWindow.once('ready-to-show', () => {
+      mainWindow.minimize();
+    });
+  }
   // Evento de impresión
   
   /*
@@ -185,7 +141,7 @@ function createWindow() {
     listPrinters();
   });
   mainWindow.on('closed', () => {
-    createWindow();
+    //createWindow();
   });
   /*mainWindow.on('closed', () => {
       mainWindow = null;
@@ -198,15 +154,68 @@ function createWindow() {
         return false;
         mainWindow = null;
 
-    }
-
+    }   
+    if(!mainWindow)
+      createWindow();
   });
   
 }
 
 
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  if (process.platform === 'win32' ) {
+    tray = new Tray(path.join(__dirname, '../build/icon.ico'))
+    // tray.on('click', tray.popUpContextMenu)
+    tray.on("click", ()=>{
+      //tray.popUpContextMenu();
+      if (mainWindow === null || mainWindow.isDestroyed()) {
+        createWindow();
+      } else {
+        if(mainWindow.isMinimized())
+          mainWindow.restore();
+        mainWindow.focus(); // Opcional: enfocar la ventana si ya está abierta
+      }
+    });
+  
+    const menu = Menu.buildFromTemplate ([
+      {
+        label: 'Abrir nueva ventana',
+        click: () => {
+            createWindow();
+        }
+      },
+      {
+        label: 'Buscar actualizaciones',
+        click: () => {
+            autoUpdater.checkForUpdates();
+        }
+      },
+      {
+        label: 'Detener servicio',
+        click() { 
+          isQuitting = true; // Marcar que la app está cerrándose
+          app.quit();
+        }
+      },
+      
+    ]);
+
+    tray.setToolTip('RSV Print Client');
+    tray.setContextMenu(menu);
+  }
+
+  let autoLaunch = new AutoLaunch({
+    name: 'RSV Print Client',
+    path: app.getPath('exe'),
+  });
+
+  autoLaunch.isEnabled().then((isEnabled) => {
+    if (!isEnabled) autoLaunch.enable();
+  });
+
+  createWindow(1);
+});
 //app.whenReady().then(createWindow);
 
 // Configura el logging
