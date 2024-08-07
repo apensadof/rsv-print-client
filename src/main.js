@@ -4,8 +4,17 @@ const AutoLaunch = require('auto-launch');
 const path = require('path');
 let selectedPrinter = null;
 let mainWindow = null;
+let isQuitting = false; // Variable para controlar el estado de cierre
+
+app.on('before-quit', () => {
+    //isQuitting = true; // Marcar que la app está cerrándose
+});
 
 function createWindow() {
+  if (isQuitting) {
+    return; // No hacer nada si la aplicación está cerrándose
+  }
+  
   autoUpdater.checkForUpdatesAndNotify();
 
   let autoLaunch = new AutoLaunch({
@@ -41,7 +50,10 @@ function createWindow() {
       },
       {
         label: 'Detener servicio',
-        click() { app.quit()}
+        click() { 
+          isQuitting = true; // Marcar que la app está cerrándose
+          app.quit();
+        }
       },
       
     ]);
@@ -173,8 +185,21 @@ function createWindow() {
     listPrinters();
   });
   mainWindow.on('closed', () => {
-    mainWindow = null;
     createWindow();
+  });
+  /*mainWindow.on('closed', () => {
+      mainWindow = null;
+  });*/
+
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+        event.preventDefault(); // Prevenir que la ventana se cierre
+        mainWindow.hide(); // Opcional: esconde la ventana en vez de cerrar
+        return false;
+        mainWindow = null;
+
+    }
+
   });
   
 }
@@ -225,6 +250,11 @@ app.on('activate', () => {
     createWindow();
   }
 });
+/*
+app.on('activate', () => {
+  createWindow(); // Crear o mostrar la ventana cuando la app se activa
+});
+*/
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
