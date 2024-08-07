@@ -6,12 +6,13 @@ let selectedPrinter = null;
 let mainWindow = null;
 let isQuitting = false; // Variable para controlar el estado de cierre
 
-app.on('before-quit', () => {
-    //isQuitting = true; // Marcar que la app está cerrándose
-});
+/*app.on('before-quit', () => {
+  app.isQuiting = true;
+});*/
 
 function createWindow(minimized = 0) {
   if (isQuitting) {
+    console.log("Esta quitting");
     return; // No hacer nada si la aplicación está cerrándose
   }
   
@@ -140,14 +141,21 @@ function createWindow(minimized = 0) {
   mainWindow.webContents.on('did-finish-load', () => {
     listPrinters();
   });
+  mainWindow.on('close', (event) => {
+    if (!app.isQuiting) {
+        event.preventDefault(); // Prevenir el cierre real de la ventana
+        mainWindow.hide(); // Ocultar la ventana
+    }
+    // Si app.isQuiting es true, se permitirá el cierre normal
+  });
   mainWindow.on('closed', () => {
-    //createWindow();
+      mainWindow = null;
   });
   /*mainWindow.on('closed', () => {
       mainWindow = null;
   });*/
 
-  mainWindow.on('close', (event) => {
+  /*mainWindow.on('close', (event) => {
     if (!isQuitting) {
         event.preventDefault(); // Prevenir que la ventana se cierre
         mainWindow.hide(); // Opcional: esconde la ventana en vez de cerrar
@@ -157,7 +165,7 @@ function createWindow(minimized = 0) {
     }   
     if(!mainWindow)
       createWindow();
-  });
+  });*/
   
 }
 
@@ -253,10 +261,18 @@ autoUpdater.on('update-downloaded', () => {
   // Puedes forzar la instalación así:
   autoUpdater.quitAndInstall(); 
 });
-
+/*
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+*/
+app.on('activate', () => {
+  if (mainWindow === null) {
+      createWindow();
+  } else {
+      mainWindow.show();
   }
 });
 /*
