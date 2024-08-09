@@ -2,34 +2,28 @@ const { app, BrowserWindow, ipcMain, dialog, Tray, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const AutoLaunch = require('auto-launch');
 const path = require('path');
-let selectedPrinter = null;
+
 let mainWindow = null;
-let isQuitting = false; // Variable para controlar el estado de cierre
+let tray = null;
+let isQuitting = false;
 
-/*app.on('before-quit', () => {
-  app.isQuiting = true;
-});*/
+function createWindow() {
+    mainWindow = new BrowserWindow({
+      width: 400,
+      height: 600,
+      
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.js'),
+        nodeIntegration: true,
+        contextIsolation: false,
+      }
+    });
 
-function createWindow(minimized = 0) {
-  if (isQuitting) {
-    console.log("Esta quitting");
-    return; // No hacer nada si la aplicación está cerrándose
-  }
-  
-  autoUpdater.checkForUpdatesAndNotify();
+    const appVersion = app.getVersion();
+    const loadUrl = `https://client.rsvapp.com/print?standalone=true&version=${appVersion}`;
 
-  mainWindow = new BrowserWindow({
-    width: 400,
-    height: 600,
-    
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: true,
-      contextIsolation: false,
-    }
-  });
-  function listPrinters() {
+    function listPrinters() {
       mainWindow.webContents.getPrintersAsync().then(printers => {
           mainWindow.webContents.send('printers-list', printers);
       });
@@ -44,10 +38,65 @@ function createWindow(minimized = 0) {
           }
       });
   });
+  ipcMain.on('minimize-window', (event) => {
+    mainWindow.minimize();
+});
+ipcMain.on('print', (event, options) => {
+  mainWindow.webContents.print({ 
+    deviceName: selectedPrinter.name, 
+    silent: true, 
+    printBackground: true 
+  }, (success, failureReason) => {
+    if (!success) 
+      console.log('Fallo de impresión:', failureReason);
+    else 
+      console.log('Printing succeeded');
+  });
+});
+ipcMain.on('print-iframe', (event, src) => {
+  console.log("Se recibió un print de iframe");
+  console.log("src es "+src);
+  let printWindow = new BrowserWindow({ 
+    show: false, 
+    webPreferences: { 
+      nodeIntegration: false 
+    } 
+  });
+  printWindow.loadURL(src);
 
+  printWindow.webContents.on('did-finish-load', () => {
+    console.log("Se cargó el iframe para imprimir");
+    console.log("La impresora destino es "+selectedPrinter.name);
+    console.log(selectedPrinter);
 
-// Manejo de errores de carga
-  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    printWindow.webContents.print({ 
+      deviceName: selectedPrinter.name, 
+      silent: true, 
+      printBackground: true,
+      margins: { // Especificar los márgenes en pulgadas; puedes necesitar ajustar según tu impresora
+        marginType: 'none',
+        /*top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0*/
+      },
+      pageSize: { // Tamaño del papel
+        width: 76000, // 80mm en micrómetros
+        height: 3276000 // Altura variable según el contenido; puedes ajustarlo
+      }
+    }, (success, errorType) => {
+      console.log("On printed");
+      console.log(success);
+      if (!success) console.error(errorType);
+      printWindow.close();
+    });
+  });
+});
+mainWindow.webContents.on('did-finish-load', () => {
+  listPrinters();
+});
+  // Manejo de errores de carga
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Error al cargar la página:', errorDescription);
     });
  
@@ -60,229 +109,118 @@ function createWindow(minimized = 0) {
     console.error('La ventana no responde');
     });
 
-    //mainWindow.loadURL(`file://${__dirname}/index.html`);
-    mainWindow.loadURL('https://client.rsvapp.com/print?standalone=true');
-    mainWindow.setMenu(null);
+    mainWindow.loadURL(loadUrl);
+    mainWindow.on('closed', () => mainWindow = null);
 
-    //mainWindow.webContents.openDevTools();
-
-    
-  // Minimizar la ventana una vez que esté lista
-  if(minimized){
-    mainWindow.once('ready-to-show', () => {
-      mainWindow.minimize();
-    });
-  }
-  // Evento de impresión
-  
-  /*
-  ipcMain.on('print', (event, content) => {
-    mainWindow.webContents.print({
-      deviceName: selectedPrinter.name
-    }, (success, errorType) => {
-      if (!success) console.log(errorType);
-    });
-  });*/
-  ipcMain.on('print', (event, options) => {
-    mainWindow.webContents.print({ 
-      deviceName: selectedPrinter.name, 
-      silent: true, 
-      printBackground: true 
-    }, (success, failureReason) => {
-      if (!success) 
-        console.log('Fallo de impresión:', failureReason);
-      else 
-        console.log('Printing succeeded');
-    });
-  });
-  ipcMain.on('print-iframe', (event, src) => {
-    console.log("Se recibió un print de iframe");
-    console.log("src es "+src);
-    let printWindow = new BrowserWindow({ 
-      show: false, 
-      webPreferences: { 
-        nodeIntegration: false 
-      } 
-    });
-    printWindow.loadURL(src);
-  
-    printWindow.webContents.on('did-finish-load', () => {
-      console.log("Se cargó el iframe para imprimir");
-      console.log("La impresora destino es "+selectedPrinter.name);
-      console.log(selectedPrinter);
-
-      printWindow.webContents.print({ 
-        deviceName: selectedPrinter.name, 
-        silent: true, 
-        printBackground: true,
-        margins: { // Especificar los márgenes en pulgadas; puedes necesitar ajustar según tu impresora
-          marginType: 'none',
-          /*top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0*/
-        },
-        pageSize: { // Tamaño del papel
-          width: 76000, // 80mm en micrómetros
-          height: 3276000 // Altura variable según el contenido; puedes ajustarlo
+    mainWindow.on('close', (event) => {
+        if (!isQuitting) {
+            event.preventDefault();
+            mainWindow.hide();
         }
-      }, (success, errorType) => {
-        console.log("On printed");
-        console.log(success);
-        if (!success) console.error(errorType);
-        printWindow.close();
-      });
     });
-  });
-  /*
-  ipcMain.on('print', (event) => {
-    mainWindow.webContents.print({ silent: true });
-  });*/
-  mainWindow.webContents.on('did-finish-load', () => {
-    listPrinters();
-  });
-  mainWindow.on('close', (event) => {
-    if (!app.isQuiting) {
-        event.preventDefault(); // Prevenir el cierre real de la ventana
-        mainWindow.hide(); // Ocultar la ventana
-    }
-    // Si app.isQuiting es true, se permitirá el cierre normal
-  });
-  mainWindow.on('closed', () => {
-      mainWindow = null;
-  });
-  /*mainWindow.on('closed', () => {
-      mainWindow = null;
-  });*/
-
-  /*mainWindow.on('close', (event) => {
-    if (!isQuitting) {
-        event.preventDefault(); // Prevenir que la ventana se cierre
-        mainWindow.hide(); // Opcional: esconde la ventana en vez de cerrar
-        return false;
-        mainWindow = null;
-
-    }   
-    if(!mainWindow)
-      createWindow();
-  });*/
-  
 }
 
-
-
-app.on('ready', () => {
-  if (process.platform === 'win32' ) {
-    tray = new Tray(path.join(__dirname, '../build/icon.ico'))
-    // tray.on('click', tray.popUpContextMenu)
-    tray.on("click", ()=>{
-      //tray.popUpContextMenu();
-      if (mainWindow === null || mainWindow.isDestroyed()) {
-        createWindow();
-      } else {
-        if(mainWindow.isMinimized())
-          mainWindow.restore();
-        mainWindow.focus(); // Opcional: enfocar la ventana si ya está abierta
-      }
-    });
-  
-    const menu = Menu.buildFromTemplate ([
-      {
-        label: 'Abrir nueva ventana',
-        click: () => {
-            createWindow();
-        }
-      },
-      {
-        label: 'Buscar actualizaciones',
-        click: () => {
-            autoUpdater.checkForUpdates();
-        }
-      },
-      {
-        label: 'Detener servicio',
-        click() { 
-          isQuitting = true; // Marcar que la app está cerrándose
-          app.quit();
-        }
-      },
-      
+function setupTray() {
+  tray = new Tray(path.join(__dirname, '../build/icon.ico'))
+  const contextMenu = Menu.buildFromTemplate([
+        { label: 'Abrir', click: () => mainWindow.show() },
+        { label: 'Buscar actualizaciones', click: () => checkForUpdates() },
+        { label: 'Detener servicio', click: () => {
+            isQuitting = true;
+            app.quit();
+        }}
     ]);
-
     tray.setToolTip('RSV Print Client');
-    tray.setContextMenu(menu);
-  }
+    tray.setContextMenu(contextMenu);
+    tray.on('click', () => {
+        if (mainWindow === null || mainWindow.isDestroyed()) {
+            createWindow();
+        } else {
+            mainWindow.show();
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
 
+function setupAutoLaunch(){
+  // Auto Launch
   let autoLaunch = new AutoLaunch({
     name: 'RSV Print Client',
     path: app.getPath('exe'),
   });
-
-  autoLaunch.isEnabled().then((isEnabled) => {
+  autoLaunch.isEnabled().then(isEnabled => {
     if (!isEnabled) autoLaunch.enable();
   });
+}
 
-  createWindow(1);
-});
-//app.whenReady().then(createWindow);
+function setupAutoUpdater() {
+    autoUpdater.checkForUpdatesAndNotify();
 
-// Configura el logging
-autoUpdater.logger = require("electron-log");
-autoUpdater.logger.transports.file.level = "info";
+    setInterval(() => {
+        if (!isQuitting) {
+            autoUpdater.checkForUpdatesAndNotify();
+        }
+    }, 5 * 60 * 1000); // Check every 5 minutes
 
-autoUpdater.on('checking-for-update', () => {
-  console.log('Checking for update...');
-});
+    autoUpdater.on('update-available', () => {
+        dialog.showMessageBox({
+            type: 'info',
+            title: 'Actualización disponible',
+            message: 'Una nueva versión está disponible, y se va a instalar ahora.',
+            buttons: ['OK']
+        });
+    });
 
-autoUpdater.on('update-not-available', (info) => {
-  console.log('Update not available.');
-});
+    autoUpdater.on('download-progress', (progressObj) => {
+      let log_message = "Download speed: " + progressObj.bytesPerSecond;
+      log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+      log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+      console.log(log_message);
+    });
 
-autoUpdater.on('error', (err) => {
-  console.error('Error in auto-updater. ' + err);
-});
+    autoUpdater.on('update-downloaded', () => {
+        autoUpdater.quitAndInstall();
+    });
 
-autoUpdater.on('download-progress', (progressObj) => {
-  let log_message = "Download speed: " + progressObj.bytesPerSecond;
-  log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-  log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
-  console.log(log_message);
-});
+    autoUpdater.on('error', (err) => {
+        console.error('Error in auto-updater:', err);
+    });
+}
 
+function checkForUpdates() {
+    autoUpdater.checkForUpdatesAndNotify();
+}
 
-// Evento disparado cuando hay una actualización disponible
-autoUpdater.on('update-available', () => {
-  console.log('Una nueva actualización está disponible.');
-});
-
-// Evento disparado cuando la actualización ha sido descargada y está lista para ser instalada
-autoUpdater.on('update-downloaded', () => {
-  console.log('Actualización descargada; se instalará en la próxima reiniciación');
-  // Puedes forzar la instalación así:
-  autoUpdater.quitAndInstall(); 
-});
-/*
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
+app.on('ready', () => {
     createWindow();
-  }
+    setupTray();
+    setupAutoUpdater();
+    setupAutoLaunch();
 });
-*/
-app.on('activate', () => {
-  if (mainWindow === null) {
-      createWindow();
-  } else {
-      mainWindow.show();
-  }
-});
-/*
-app.on('activate', () => {
-  createWindow(); // Crear o mostrar la ventana cuando la app se activa
-});
-*/
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+    if (process.platform !== 'darwin') {
+        app.quit();
+    }
 });
+
+app.on('activate', () => {
+    if (mainWindow === null) {
+        createWindow();
+    } else {
+        mainWindow.show();
+    }
+});
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
